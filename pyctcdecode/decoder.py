@@ -359,6 +359,7 @@ class BeamSearchDecoderCTC:
         prune_history: bool,
         hotword_scorer: HotwordScorer,
         lm_start_state: LMState = None,
+        skip_merge_frames: bool = False,
     ) -> List[OutputBeam]:
         """Perform beam search decoding."""
         # local dictionaries to cache scores during decoding
@@ -411,8 +412,24 @@ class BeamSearchDecoderCTC:
                                 logit_score + p_char,
                             )
                         )
-                    # if bpe and leading space char
-                    elif self._is_bpe and (char[:1] == BPE_TOKEN or force_next_break):
+                    # if not bpe and space char
+                    elif not self._is_bpe and char == " ":
+                        new_frame_list = (
+                            text_frames if word_part == "" else text_frames + [part_frames]
+                        )
+                        new_beams.append(
+                            (
+                                text,
+                                word_part,
+                                "",
+                                char,
+                                new_frame_list,
+                                NULL_FRAMES,
+                                logit_score + p_char,
+                            )
+                        )
+                                        # if bpe and leading space char
+                    elif skip_merge_frames or (self._is_bpe and (char[:1] == BPE_TOKEN) or force_next_break):
                         force_next_break = False
                         # some tokens are bounded on both sides like ▁⁇▁
                         clean_char = char
@@ -432,22 +449,6 @@ class BeamSearchDecoderCTC:
                                 char,
                                 new_frame_list,
                                 (frame_idx, frame_idx + 1),
-                                logit_score + p_char,
-                            )
-                        )
-                    # if not bpe and space char
-                    elif not self._is_bpe and char == " ":
-                        new_frame_list = (
-                            text_frames if word_part == "" else text_frames + [part_frames]
-                        )
-                        new_beams.append(
-                            (
-                                text,
-                                word_part,
-                                "",
-                                char,
-                                new_frame_list,
-                                NULL_FRAMES,
                                 logit_score + p_char,
                             )
                         )
@@ -530,6 +531,7 @@ class BeamSearchDecoderCTC:
         hotwords: Optional[Iterable[str]] = None,
         hotword_weight: float = DEFAULT_HOTWORD_WEIGHT,
         lm_start_state: LMState = None,
+        skip_merge_frames: bool = False
     ) -> List[OutputBeam]:
         """Convert input token logit matrix to decoded beams including meta information.
 
@@ -564,6 +566,7 @@ class BeamSearchDecoderCTC:
             prune_history=prune_history,
             hotword_scorer=hotword_scorer,
             lm_start_state=lm_start_state,
+            skip_merge_frames=skip_merge_frames,
         )
         return decoded_beams
 
